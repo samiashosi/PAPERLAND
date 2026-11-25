@@ -1,8 +1,17 @@
 
+// ============================================================
+// animation.cpp - the open book: cover flip, pages, closing
+// ============================================================
 #include <GL/freeglut.h>
+#include <cmath>
 
 #include "../include/animation.h"
 #include "../include/forest.h"
+#include "../include/paper.h"
+#include "../include/audio.h"
+#include "../include/interactions.h"
+
+using namespace pl;
 
 // ============================================
 // BOOK ANIMATION STATE
@@ -10,66 +19,50 @@
 
 static float animationProgress = 0.0f;
 static bool animationRunning = false;
-
-
-// ============================================
-// SMOOTH ANIMATION
-// ============================================
-
-static float smooth(float t)
-{
-    if (t < 0.0f) t = 0.0f;
-    if (t > 1.0f) t = 1.0f;
-
-    return t * t * (3.0f - 2.0f * t);
-}
-
-
-// ============================================
-// BASIC RECTANGLE
-// ============================================
-
-static void rectangle(
-    float x1, float y1,
-    float x2, float y2,
-    float r, float g, float b)
-{
-    glColor3f(r, g, b);
-
-    glBegin(GL_QUADS);
-
-    glVertex2f(x1, y1);
-    glVertex2f(x2, y1);
-    glVertex2f(x2, y2);
-    glVertex2f(x1, y2);
-
-    glEnd();
-}
-
-
-// ============================================
-// START BOOK ANIMATION
-// ============================================
+static bool closing = false;
+static bool closed = false;
 
 void startBookAnimation()
 {
     animationProgress = 0.0f;
     animationRunning = true;
+    closing = false;
+    closed = false;
+    pl::setPaused(false);
 
     // Reset the forest animation too
     startForest();
 }
 
+void startBookClose()
+{
+    if (closing) return;
+    closing = true;
+    closed = false;
+    animationRunning = false;
+    audio::play(audio::SFX_PAGE);
+}
 
-// ============================================
-// UPDATE BOOK ANIMATION
-// ============================================
+bool isBookClosing() { return closing; }
+bool isBookClosed() { return closed; }
 
 bool updateBookAnimation()
 {
-    if (animationRunning)
+    float dt = pl::dt();
+
+    if (closing)
     {
-        animationProgress += 0.008f;
+        animationProgress -= dt / 1.1f;
+        if (animationProgress <= 0.0f)
+        {
+            animationProgress = 0.0f;
+            closed = true;
+            audio::stopMusic();
+        }
+    }
+    else if (animationRunning)
+    {
+        animationProgress += dt / 2.0f;
 
         if (animationProgress >= 1.0f)
         {
@@ -81,19 +74,13 @@ bool updateBookAnimation()
     // Update forest animations
     updateForest();
 
-    return !animationRunning;
+    return !animationRunning && !closing;
 }
-
-
-// ============================================
-// GET ANIMATION PROGRESS
-// ============================================
 
 float getBookAnimationProgress()
 {
     return animationProgress;
 }
-
 
 // ============================================
 // DRAW THE OPEN BOOK
@@ -104,79 +91,66 @@ void drawBookAnimation()
     glClearColor(0.96f, 0.90f, 0.76f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // Book shadow
-    rectangle(
-        180, 135, 820, 165,
-        0.55f, 0.42f, 0.28f
-    );
+    // desk: soft wooden stripes
+    for (int i = 0; i < 9; i++)
+        rect(0, i * 75.0f, 1000, i * 75.0f + 1.5f, Col(0.80f, 0.68f, 0.50f, 0.25f));
 
-    // Left page
-    rectangle(
-        200, 170, 500, 470,
-        0.96f, 0.88f, 0.68f
-    );
+    // book board, shadow and page stack
+    rect(46, 66, 972, 596, Col(0.30f, 0.22f, 0.12f, 0.35f));
+    rect(38, 78, 962, 606, Col(0.35f, 0.08f, 0.12f));
+    rect(38, 78, 962, 86, Col(0.27f, 0.05f, 0.09f));
+    for (int i = 0; i < 4; i++)
+        rect(52, 90 - i * 1.5f, 948, 91 - i * 1.5f, Col(0.88f, 0.82f, 0.66f));
 
-    // Right page
-    rectangle(
-        500, 170, 800, 470,
-        0.99f, 0.93f, 0.79f
-    );
+    // left and right pages
+    rect(50, 94, 500, 594, Col(0.99f, 0.95f, 0.82f));
+    rect(500, 94, 950, 594, Col(0.99f, 0.96f, 0.86f));
 
-    // Center fold
-    rectangle(
-        496, 170, 504, 470,
-        0.86f, 0.77f, 0.59f
-    );
+    // gutter shading
+    rectGradH(450, 94, 500, 594, Col(0, 0, 0, 0), Col(0.35f, 0.25f, 0.1f, 0.18f));
+    rectGradH(500, 94, 550, 594, Col(0.35f, 0.25f, 0.1f, 0.2f), Col(0, 0, 0, 0));
+    rect(498, 94, 502, 594, Col(0.78f, 0.68f, 0.5f));
 
-    // Draw forest from forest.cpp
+    // the pop-up forest, its HUD and the cinematic overlay
     drawForest();
 
-    // Book cover disappears as the book opens
-    float eased = smooth(animationProgress);
-    float coverWidth = 300.0f * (1.0f - eased);
-
-    if (coverWidth > 1.0f)
+    // ---- the front cover flips over to the left ----
+    float p = animationProgress;
+    float flip = smooth(clamp01(p / 0.7f));
+    if (flip < 1.0f)
     {
-        rectangle(
-            500 - coverWidth, 160,
-            500, 480,
-            0.35f, 0.08f, 0.12f
-        );
-    }
+        float sx = std::cos(flip * PI);
+        float edge = std::sin(flip * PI) * 9.0f;
+        float xe = 500 + 450 * sx;
 
-    // Chapter title
-    if (animationProgress >= 1.0f)
-    {
-        glColor3f(0.25f, 0.15f, 0.10f);
-        glRasterPos2f(345, 80);
+        // cast shadow on the page beneath the turning cover
+        if (sx > 0.0f)
+            rectGradH(xe, 94, xe + 70 * std::sin(flip * PI), 594, Col(0, 0, 0, 0.28f), Col(0, 0, 0, 0));
+        else
+            rectGradH(xe - 70 * std::sin(flip * PI), 94, xe, 594, Col(0, 0, 0, 0), Col(0, 0, 0, 0.22f));
 
-        const char* title = "THE ENCHANTED FOREST";
-
-        for (int i = 0; title[i] != '\0'; i++)
+        float quad[] = { 500, 94, xe, 94 - edge, xe, 594 + edge, 500, 594 };
+        if (sx > 0.0f)
         {
-            glutBitmapCharacter(
-                GLUT_BITMAP_TIMES_ROMAN_24,
-                title[i]
-            );
+            poly(quad, 4, Col(0.35f, 0.08f, 0.12f));
+            if (sx > 0.5f)
+            {
+                float a = (sx - 0.5f) * 2.0f;
+                // gold frame and title on the cover
+                glColor4f(0.85f, 0.66f, 0.32f, a);
+                glLineWidth(3.0f);
+                glBegin(GL_LINE_LOOP);
+                glVertex2f(500 + 450 * sx * 0.06f, 130); glVertex2f(500 + 450 * sx * 0.94f, 130);
+                glVertex2f(500 + 450 * sx * 0.94f, 560); glVertex2f(500 + 450 * sx * 0.06f, 560);
+                glEnd();
+                glLineWidth(1.0f);
+                textCentered(500 + 225 * sx, 400, "PAPERLAND", GLUT_BITMAP_TIMES_ROMAN_24, Col(0.98f, 0.84f, 0.48f, a));
+                textCentered(500 + 225 * sx, 370, "THE LIVING BOOK", GLUT_BITMAP_HELVETICA_12, Col(0.95f, 0.80f, 0.50f, a));
+            }
         }
-    }
-
-    // Back button
-    rectangle(
-        50, 35, 230, 85,
-        0.35f, 0.12f, 0.12f
-    );
-
-    glColor3f(1.0f, 0.88f, 0.65f);
-    glRasterPos2f(78, 53);
-
-    const char* backText = "BACK TO MENU";
-
-    for (int i = 0; backText[i] != '\0'; i++)
-    {
-        glutBitmapCharacter(
-            GLUT_BITMAP_HELVETICA_18,
-            backText[i]
-        );
+        else
+        {
+            poly(quad, 4, Col(0.95f, 0.90f, 0.76f));   // inside of the cover
+        }
     }
 }

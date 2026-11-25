@@ -3,6 +3,8 @@
 #include <cmath>
 #include <string>
 #include "../include/animation.h"
+#include "../include/forest.h"
+#include "../include/audio.h"
 
 // Window dimensions
 const float WIDTH = 1000.0f;
@@ -427,20 +429,17 @@ bool handleMenuMouse(
     float mouseX = static_cast<float>(x);
     float mouseY = HEIGHT - static_cast<float>(y);
 
-    // Back button on the animated book screen
-if (screen == AppScreen::STORY)
-{
-    if (
-        mouseX >= 50 && mouseX <= 230 &&
-        mouseY >= 35 && mouseY <= 85
-    )
+    // Animated book screen: back button or forest interaction
+    if (screen == AppScreen::STORY)
     {
-        screen = AppScreen::MENU;
-        return true;
-    }
+        if (forestBackHit(mouseX, mouseY))
+        {
+            startBookClose();      // the book closes, then the menu returns
+            return true;
+        }
 
-    return handleForestClick(mouseX, mouseY);
-}
+        return handleForestClick(mouseX, mouseY);
+    }
 
 // Secondary screens: back button
 if (screen != AppScreen::MENU)
@@ -520,8 +519,9 @@ bool handleMenuKeyboard(
         return false;
     }
 
-    if (key == '1' && screen == AppScreen::MENU)
+    if ((key == '1' || key == 13) && screen == AppScreen::MENU)
     {
+        startBookAnimation();
         screen = AppScreen::STORY;
         return true;
     }

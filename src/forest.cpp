@@ -1,408 +1,292 @@
-
+// ============================================================
+// forest.cpp - Chapter 1: The Enchanted Forest (director)
+//
+// Timeline (seconds after the book cover has opened):
+//   Stage 1  landscape rises            0.2 -  2.6
+//   Stage 2  trees unfold               2.2 -  4.6
+//   Stage 3  water begins to flow       4.4 -  6.6
+//   Stage 4  magical village appears    6.4 -  8.6
+//   Stage 5  inhabitants arrive         8.4 - 10.2
+//   Stage 6  the magic awakens         10.0 - 12.2
+//   Stage 7  the forest is alive       12.4 -> explore
+// ============================================================
 #include <GL/freeglut.h>
 #include <cmath>
 
 #include "../include/forest.h"
 #include "../include/animation.h"
+#include "../include/paper.h"
+#include "../include/layout.h"
+#include "../include/environment.h"
+#include "../include/objects.h"
+#include "../include/characters.h"
+#include "../include/effects.h"
+#include "../include/interactions.h"
+#include "../include/story.h"
+#include "../include/audio.h"
 
-// ============================================
-// FOREST ANIMATION STATE
-// ============================================
+using namespace pl;
 
-static float butterflyPhase = 0.0f;
+// ------------------------------------------------------------
+// state
+// ------------------------------------------------------------
+static float g_t = 0.0f;                    // forest timeline
+static ForestPhase g_phase = FP_UNFOLD;
+static float g_exploreT = 0.0f;
+static float g_allFoundT = 0.0f;
+static const float T_READY = 12.4f;
+static const float EXPLORE_LIMIT = 55.0f;   // the story starts by itself after this
 
-static bool flowerBloomed[3] = {
-    false, false, false
-};
+struct Stages { float land, trees, water, village, inhab, magic; };
 
-const float FOREST_PI = 3.1415926f;
-
-
-// ============================================
-// ANIMATION HELPERS
-// ============================================
-
-static float smooth(float t)
+static Stages stages()
 {
-    if (t < 0.0f) t = 0.0f;
-    if (t > 1.0f) t = 1.0f;
-
-    return t * t * (3.0f - 2.0f * t);
+    Stages s;
+    s.land = window(g_t, 0.2f, 2.6f);
+    s.trees = window(g_t, 2.2f, 4.6f);
+    s.water = window(g_t, 4.4f, 6.6f);
+    s.village = window(g_t, 6.4f, 8.6f);
+    s.inhab = window(g_t, 8.4f, 10.2f);
+    s.magic = window(g_t, 10.0f, 12.2f);
+    return s;
 }
-
-static float stage(float progress, float start, float end)
-{
-    return smooth((progress - start) / (end - start));
-}
-
-
-// ============================================
-// BASIC DRAWING SHAPES
-// ============================================
-
-static void rectangle(
-    float x1, float y1,
-    float x2, float y2,
-    float r, float g, float b)
-{
-    glColor3f(r, g, b);
-
-    glBegin(GL_QUADS);
-    glVertex2f(x1, y1);
-    glVertex2f(x2, y1);
-    glVertex2f(x2, y2);
-    glVertex2f(x1, y2);
-    glEnd();
-}
-
-static void triangle(
-    float x1, float y1,
-    float x2, float y2,
-    float x3, float y3,
-    float r, float g, float b)
-{
-    glColor3f(r, g, b);
-
-    glBegin(GL_TRIANGLES);
-    glVertex2f(x1, y1);
-    glVertex2f(x2, y2);
-    glVertex2f(x3, y3);
-    glEnd();
-}
-
-static void circle(
-    float x, float y, float radius,
-    float r, float g, float b)
-{
-    glColor3f(r, g, b);
-
-    glBegin(GL_TRIANGLE_FAN);
-    glVertex2f(x, y);
-
-    for (int i = 0; i <= 40; i++)
-    {
-        float angle = i * 2.0f * FOREST_PI / 40.0f;
-
-        glVertex2f(
-            x + cos(angle) * radius,
-            y + sin(angle) * radius
-        );
-    }
-
-    glEnd();
-}
-
-
-// ============================================
-// POP-UP GROUND
-// ============================================
-
-static void drawGround(float amount)
-{
-    if (amount <= 0.0f)
-        return;
-
-    glPushMatrix();
-
-    glTranslatef(500, 255, 0);
-    glScalef(1.0f, amount, 1.0f);
-    glTranslatef(-500, -255, 0);
-
-    rectangle(
-        255, 255, 745, 285,
-        0.20f, 0.43f, 0.27f
-    );
-
-    // Front paper edge
-    rectangle(
-        255, 255, 745, 262,
-        0.13f, 0.32f, 0.19f
-    );
-
-    glPopMatrix();
-}
-
-
-// ============================================
-// POP-UP MOUNTAINS
-// ============================================
-
-static void drawMountain(
-    float x, float baseY,
-    float width, float height,
-    float amount,
-    float r, float g, float b)
-{
-    if (amount <= 0.0f)
-        return;
-
-    glPushMatrix();
-
-    glTranslatef(x, baseY, 0);
-    glScalef(1.0f, amount, 1.0f);
-
-    triangle(
-        -width / 2, 0,
-        width / 2, 0,
-        0, height,
-        r, g, b
-    );
-
-    glPopMatrix();
-}
-
-
-// ============================================
-// POP-UP TREES
-// ============================================
-
-static void drawTree(
-    float x, float baseY,
-    float scale, float amount)
-{
-    if (amount <= 0.0f)
-        return;
-
-    float trunkHeight = 55.0f * scale;
-    float canopyHeight = 85.0f * scale;
-
-    glPushMatrix();
-
-    glTranslatef(x, baseY, 0);
-
-    // Trunk rises from the page
-    glPushMatrix();
-
-    glScalef(1.0f, amount, 1.0f);
-
-    rectangle(
-        -7 * scale, 0,
-        7 * scale, trunkHeight,
-        0.40f, 0.22f, 0.12f
-    );
-
-    glPopMatrix();
-
-    // Canopy unfolds
-    float canopy = stage(amount, 0.30f, 1.0f);
-
-    if (canopy > 0.0f)
-    {
-        glPushMatrix();
-
-        glTranslatef(0, trunkHeight, 0);
-
-        glRotatef(
-            -90.0f * (1.0f - canopy),
-            0, 0, 1
-        );
-
-        triangle(
-            -38 * scale, 0,
-            38 * scale, 0,
-            0, canopyHeight,
-            0.13f, 0.39f, 0.24f
-        );
-
-        glTranslatef(0, 25 * scale, 0);
-
-        triangle(
-            -29 * scale, 0,
-            29 * scale, 0,
-            0, canopyHeight * 0.75f,
-            0.21f, 0.49f, 0.30f
-        );
-
-        glPopMatrix();
-    }
-
-    glPopMatrix();
-}
-
-
-// ============================================
-// FLOWERS
-// ============================================
-
-static void drawFlower(float x, float y, int index)
-{
-    float bloom = stage(
-        getBookAnimationProgress(),
-        0.76f, 0.90f
-    );
-
-    if (bloom <= 0.0f)
-        return;
-
-    float radius = flowerBloomed[index] ? 13.0f : 7.0f;
-    radius *= bloom;
-
-    circle(
-        x, y, radius,
-        1.0f, 0.55f, 0.35f
-    );
-
-    circle(
-        x, y, radius * 0.35f,
-        1.0f, 0.85f, 0.25f
-    );
-}
-
-
-// ============================================
-// BUTTERFLIES
-// ============================================
-
-static void drawButterfly(float x, float y)
-{
-    float flap = sin(butterflyPhase * 5.0f) * 5.0f;
-
-    circle(
-        x - 8, y + flap,
-        8, 0.95f, 0.35f, 0.55f
-    );
-
-    circle(
-        x + 8, y - flap,
-        8, 0.65f, 0.35f, 0.85f
-    );
-
-    rectangle(
-        x - 2, y - 7,
-        x + 2, y + 7,
-        0.25f, 0.15f, 0.12f
-    );
-}
-
-
-// ============================================
-// DRAW COMPLETE FOREST
-// ============================================
-
-void drawForest()
-{
-    float progress = getBookAnimationProgress();
-
-    float ground = stage(progress, 0.12f, 0.32f);
-
-    float mountain1 = stage(progress, 0.27f, 0.49f);
-    float mountain2 = stage(progress, 0.38f, 0.60f);
-
-    float tree1 = stage(progress, 0.45f, 0.70f);
-    float tree2 = stage(progress, 0.52f, 0.76f);
-    float tree3 = stage(progress, 0.59f, 0.83f);
-    float tree4 = stage(progress, 0.66f, 0.90f);
-
-    float sun = stage(progress, 0.35f, 0.60f);
-
-    // Sun
-    if (sun > 0.0f)
-    {
-        circle(
-            680, 415, 27 * sun,
-            1.0f, 0.75f, 0.29f
-        );
-    }
-
-    // Ground
-    drawGround(ground);
-
-    // Mountains
-    drawMountain(
-        390, 280, 340, 190,
-        mountain1,
-        0.43f, 0.55f, 0.42f
-    );
-
-    drawMountain(
-        625, 280, 310, 160,
-        mountain2,
-        0.35f, 0.49f, 0.34f
-    );
-
-    // Trees
-    drawTree(330, 280, 0.90f, tree1);
-    drawTree(430, 280, 0.85f, tree2);
-    drawTree(550, 280, 0.90f, tree3);
-    drawTree(665, 280, 0.95f, tree4);
-
-    // Flowers
-    drawFlower(375, 270, 0);
-    drawFlower(510, 270, 1);
-    drawFlower(710, 270, 2);
-
-    // Butterflies
-    if (progress > 0.88f)
-    {
-        float x1 = 420 + sin(butterflyPhase) * 65;
-        float y1 = 390 + cos(butterflyPhase * 1.5f) * 25;
-
-        float x2 = 620 + cos(butterflyPhase) * 40;
-        float y2 = 350 + sin(butterflyPhase) * 20;
-
-        drawButterfly(x1, y1);
-        drawButterfly(x2, y2);
-    }
-}
-
-
-// ============================================
-// FOREST ANIMATION CONTROLS
-// ============================================
 
 void startForest()
 {
-    butterflyPhase = 0.0f;
-
-    for (int i = 0; i < 3; i++)
-    {
-        flowerBloomed[i] = false;
-    }
+    seedRandom(2024);
+    g_t = 0.0f;
+    g_phase = FP_UNFOLD;
+    g_exploreT = 0.0f;
+    g_allFoundT = 0.0f;
+    fx::initEffects();
+    env::initEnvironment();
+    obj::initObjects();
+    chara::initCharacters();
+    ui::initInteractions();
+    story::initStory();
+    ui::resetCursor();
+    audio::startMusic();
+    audio::play(audio::SFX_PAGE);
 }
 
+bool isForestReady() { return g_phase != FP_UNFOLD; }
+ForestPhase forestPhase() { return g_phase; }
+bool forestStoryFinished() { return g_phase == FP_AFTER; }
+bool forestBackHit(float x, float y)
+{
+    return g_phase != FP_STORY && ui::backButtonHit(x, y);
+}
+
+// ------------------------------------------------------------
+// update
+// ------------------------------------------------------------
 void updateForest()
 {
-    if (getBookAnimationProgress() > 0.88f)
+    float dt = pl::dt();
+    float bookP = getBookAnimationProgress();
+    bool closing = isBookClosing();
+
+    if (bookP >= 0.72f && !closing) g_t += dt;
+    Stages s = stages();
+
+    fx::setLeafAmount(s.trees);
+    fx::setWaterfallAmount(s.water);
+    fx::setFireflyAmount(s.magic);
+    fx::updateEffects(dt);
+    env::updateEnvironment(dt);
+    obj::updateObjects(dt);
+    chara::updateCharacters(dt);
+    ui::updateInteractions(dt);
+    story::updateStory(dt);
+
+    if (g_phase == FP_UNFOLD && g_t >= T_READY)
     {
-        butterflyPhase += 0.035f;
+        g_phase = FP_EXPLORE;
+        g_exploreT = 0.0f;
+        ui::toast("The forest is alive!", "Click the creatures and objects, and find 5 hidden treasures.", 6.0f, 1);
+        audio::play(audio::SFX_SPARKLE);
+    }
+
+    if (g_phase == FP_EXPLORE)
+    {
+        g_exploreT += dt;
+        float remaining = EXPLORE_LIMIT - g_exploreT;
+        ui::setStoryCountdown(remaining <= 15.0f ? remaining : -1.0f);
+
+        // all five found: give the player a moment, then the story begins
+        if (ui::allDiscovered() && !ui::discoveryBusy())
+        {
+            g_allFoundT += dt;
+            ui::setStoryCountdown(-1.0f);
+            if (g_allFoundT > 4.5f) { g_phase = FP_STORY; story::startStory(); }
+        }
+        else if (remaining <= 0.0f)
+        {
+            g_phase = FP_STORY;
+            story::startStory();
+        }
+        if (g_phase == FP_STORY) { ui::setStoryCountdown(-1.0f); ui::resetCursor(); }
+    }
+
+    if (g_phase == FP_STORY && story::storyJustFinished())
+    {
+        g_phase = FP_AFTER;
+        fx::forestParticles().sparkles(layout::TREE_X, layout::TREE_Y + 260, 50, Col(1.0f, 0.9f, 0.45f), 170, 10);
+        ui::toast("The light has returned!", "Explore freely, or press BACK TO BOOK. (T replays the story)", 7.0f, 1);
+        audio::play(audio::SFX_ALLFOUND);
     }
 }
 
-bool isForestReady()
+// ------------------------------------------------------------
+// draw
+// ------------------------------------------------------------
+void drawForest()
 {
-    return getBookAnimationProgress() >= 1.0f;
+    Stages s = stages();
+    float scaleOpen = isBookClosing() ? smooth(getBookAnimationProgress() * 1.6f) : 1.0f;
+
+    glPushMatrix();
+    // when the book closes the pop-up scene folds flat
+    glTranslatef(0, layout::B, 0);
+    glScalef(1.0f, 0.04f + 0.96f * scaleOpen, 1.0f);
+    glTranslatef(0, -layout::B, 0);
+
+    scissor(layout::L, layout::B, layout::R, layout::T);
+
+    // ---- Zone 1: background landscape ----
+    env::drawSky(s.land);
+    env::drawSun(window(s.land, 0.15f, 1.0f));
+    env::drawClouds(window(s.land, 0.1f, 0.9f));
+    env::drawMountains(s.land);
+    ui::drawHidden(4, s.village);                    // star fragment glimmering in the sky
+    chara::drawBirds(s.inhab);
+    env::drawHills(s.land);
+    env::drawDistantTrees(window(s.land, 0.3f, 1.0f));
+    env::drawGround(s.land);
+    env::drawGrassTufts(window(s.land, 0.5f, 1.0f));
+
+    // ---- Zone 2: water (waterfall cliff, river, pond) ----
+    env::drawWaterfallCliff(window(s.water, 0.0f, 0.4f));
+    env::drawRiver(window(s.water, 0.1f, 0.8f));
+    env::drawWaterfall(window(s.water, 0.1f, 0.6f), env::waterfallBoost());
+    env::drawPond(window(s.water, 0.6f, 1.0f));
+    fx::drawEffectsBack();                           // ripples sit on the water
+    env::drawPathStones(s.village);
+
+    // ---- standing paper objects, far to near ----
+    env::drawTreeIndex(0, stagger(s.trees, 0, 4, 0.5f));
+    env::drawTreeIndex(1, stagger(s.trees, 1, 4, 0.5f));
+    env::drawTreeIndex(2, stagger(s.trees, 2, 4, 0.5f));
+    float glowAmt = s.village;
+    obj::drawHouse(0, s.village, glowAmt);           // yellow house (far)
+    obj::drawHouse(1, s.village, glowAmt);           // red house
+    env::drawTreeIndex(3, stagger(s.trees, 3, 4, 0.5f));
+    ui::drawHidden(1, s.village);                    // ancient leaf hiding in the oak
+    env::drawBridge(s.water);
+    obj::drawHouse(2, s.village, glowAmt);           // lavender house (near)
+    obj::drawSign(window(s.village, 0.4f, 1.0f));
+    obj::drawAncientTree(window(s.trees, 0.2f, 1.0f), s.magic);
+    obj::drawChest(window(s.magic, 0.3f, 0.8f));
+
+    // ---- foreground: flowers, hidden objects, characters ----
+    ui::drawHidden(0, s.village);                    // crystal in the flowers
+    obj::drawFlowers(s.village);
+    obj::drawMagicalFlowers(window(s.magic, 0.0f, 1.0f));
+    ui::drawHidden(2, s.village);                    // feather by the pond
+    ui::drawHidden(3, s.village);                    // golden key under the mushrooms
+    obj::drawMushrooms(s.village);
+    chara::drawGroundCharacters(s.inhab);
+    chara::drawButterflies(s.inhab);
+
+    // ---- light and particles ----
+    fx::drawEffectsFront();
+    ui::drawHintRings();
+
+    scissorOff();
+    glPopMatrix();
+
+    // stage frame (little paper border around the pop-up scene)
+    glColor4f(0.55f, 0.38f, 0.22f, 0.9f * s.land);
+    glLineWidth(3.0f);
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(layout::L, layout::B); glVertex2f(layout::R, layout::B);
+    glVertex2f(layout::R, layout::T); glVertex2f(layout::L, layout::T);
+    glEnd();
+    glLineWidth(1.0f);
+
+    // ---- HUD ----
+    bool storyOn = (g_phase == FP_STORY);
+    ui::drawHUD(window(g_t, 0.0f, 1.0f), window(g_t, 8.4f, 9.4f));
+    if (!storyOn) ui::drawBackButton(g_phase == FP_AFTER);
+    ui::drawFlyingIcons();
+
+    // ---- cinematic overlay ----
+    story::drawStory();
+
+    if (pl::paused())
+    {
+        overlay(Col(0.1f, 0.06f, 0.04f, 0.35f));
+        panel(390, 300, 610, 360, Col(0.99f, 0.93f, 0.78f), Col(0.62f, 0.42f, 0.22f));
+        textCentered(500, 322, "PAUSED", GLUT_BITMAP_TIMES_ROMAN_24, Col(0.40f, 0.20f, 0.10f));
+        textCentered(500, 306, "press SPACE to continue", GLUT_BITMAP_HELVETICA_12, Col(0.5f, 0.36f, 0.24f));
+    }
 }
 
-
-// ============================================
-// FOREST INTERACTION
-// ============================================
-
+// ------------------------------------------------------------
+// input
+// ------------------------------------------------------------
 bool handleForestClick(float x, float y)
 {
-    if (!isForestReady())
-        return false;
+    if (pl::paused()) return false;
+    if (g_phase == FP_STORY) return story::storyClick(x, y);
+    if (g_phase == FP_UNFOLD) return false;
+    return ui::handleClick(x, y);
+}
 
-    if (y < 250 || y > 290)
-        return false;
+void forestMouseMove(float x, float y)
+{
+    pl::setMouse(x, y);
+    if (g_phase == FP_EXPLORE || g_phase == FP_AFTER) ui::handleHover(x, y);
+}
 
-    if (x > 350 && x < 400)
+void forestKey(unsigned char key)
+{
+    switch (key)
     {
-        flowerBloomed[0] = true;
-        return true;
+    case ' ':
+        pl::setPaused(!pl::paused());
+        break;
+    case 'm': case 'M':
+        audio::toggleMute();
+        break;
+    case 'h': case 'H':
+        if (g_phase == FP_EXPLORE || g_phase == FP_AFTER) ui::giveHint();
+        break;
+    case 's': case 'S':
+        if (g_phase == FP_UNFOLD) g_t = T_READY;                // skip the unfolding
+        else if (g_phase == FP_STORY) story::skipStory();
+        break;
+    case 13: case 'n': case 'N':
+        if (g_phase == FP_STORY) story::storyAdvance();
+        else if (g_phase == FP_EXPLORE) { g_phase = FP_STORY; story::startStory(); ui::resetCursor(); }
+        break;
+    case 't': case 'T':
+        if (g_phase == FP_EXPLORE || g_phase == FP_AFTER) { g_phase = FP_STORY; story::startStory(); ui::resetCursor(); }
+        break;
+    default:
+        break;
     }
+}
 
-    if (x > 485 && x < 535)
+void forestSpecialKey(int key)
+{
+    if (g_phase == FP_STORY)
     {
-        flowerBloomed[1] = true;
-        return true;
+        if (key == GLUT_KEY_RIGHT) story::storyAdvance();
+        return;
     }
-
-    if (x > 685 && x < 735)
-    {
-        flowerBloomed[2] = true;
-        return true;
-    }
-
-    return false;
+    if (key == GLUT_KEY_RIGHT)
+        ui::toast("Chapter 2 is still folded", "The Paper Village will unfold in a later release.", 3.0f, 0);
+    else if (key == GLUT_KEY_LEFT)
+        ui::toast("This is the first page", "There is no earlier chapter. Press ESC for the menu.", 3.0f, 0);
 }
