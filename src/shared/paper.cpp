@@ -5,7 +5,7 @@
 #include <cmath>
 #include <cstring>
 
-#include "../include/paper.h"
+#include "shared/paper.h"
 
 namespace pl
 {

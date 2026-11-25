@@ -5,11 +5,11 @@
 #include <cmath>
 #include <vector>
 
-#include "../include/objects.h"
-#include "../include/effects.h"
-#include "../include/layout.h"
-#include "../include/environment.h"
-#include "../include/audio.h"
+#include "chapters/chapter1/forest_objects.h"
+#include "chapters/chapter1/forest_effects.h"
+#include "chapters/chapter1/forest_layout.h"
+#include "chapters/chapter1/forest_environment.h"
+#include "shared/audio.h"
 
 using namespace pl;
 

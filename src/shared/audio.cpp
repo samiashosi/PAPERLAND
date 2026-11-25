@@ -6,7 +6,7 @@
 //          is loaded with LoadLibrary, so no extra linker flag is needed.
 // Other platforms: every function is a silent no-op.
 // ============================================================
-#include "../include/audio.h"
+#include "shared/audio.h"
 
 #ifdef _WIN32
 #ifndef NOMINMAX

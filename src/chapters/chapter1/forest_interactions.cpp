@@ -6,13 +6,13 @@
 #include <cstdio>
 #include <vector>
 
-#include "../include/interactions.h"
-#include "../include/characters.h"
-#include "../include/objects.h"
-#include "../include/environment.h"
-#include "../include/effects.h"
-#include "../include/layout.h"
-#include "../include/audio.h"
+#include "chapters/chapter1/forest_interactions.h"
+#include "chapters/chapter1/forest_characters.h"
+#include "chapters/chapter1/forest_objects.h"
+#include "chapters/chapter1/forest_environment.h"
+#include "chapters/chapter1/forest_effects.h"
+#include "chapters/chapter1/forest_layout.h"
+#include "shared/audio.h"
 
 using namespace pl;
 

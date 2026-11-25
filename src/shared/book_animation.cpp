@@ -1,15 +1,13 @@
 
 // ============================================================
-// animation.cpp - the open book: cover flip, pages, closing
+// book_animation.cpp - the open book: cover flip, pages, closing
 // ============================================================
 #include <GL/freeglut.h>
 #include <cmath>
 
-#include "../include/animation.h"
-#include "../include/forest.h"
-#include "../include/paper.h"
-#include "../include/audio.h"
-#include "../include/interactions.h"
+#include "shared/book_animation.h"
+#include "shared/paper.h"
+#include "shared/audio.h"
 
 using namespace pl;
 
@@ -22,6 +20,16 @@ static bool animationRunning = false;
 static bool closing = false;
 static bool closed = false;
 
+// the chapter drawn on the pages (registered by core/game)
+static void (*g_start)() = 0;
+static void (*g_update)() = 0;
+static void (*g_draw)() = 0;
+
+void setBookContent(void (*start)(), void (*update)(), void (*draw)())
+{
+    g_start = start; g_update = update; g_draw = draw;
+}
+
 void startBookAnimation()
 {
     animationProgress = 0.0f;
@@ -31,7 +39,7 @@ void startBookAnimation()
     pl::setPaused(false);
 
     // Reset the forest animation too
-    startForest();
+    if (g_start) g_start();
 }
 
 void startBookClose()
@@ -72,7 +80,7 @@ bool updateBookAnimation()
     }
 
     // Update forest animations
-    updateForest();
+    if (g_update) g_update();
 
     return !animationRunning && !closing;
 }
@@ -112,7 +120,7 @@ void drawBookAnimation()
     rect(498, 94, 502, 594, Col(0.78f, 0.68f, 0.5f));
 
     // the pop-up forest, its HUD and the cinematic overlay
-    drawForest();
+    if (g_draw) g_draw();
 
     // ---- the front cover flips over to the left ----
     float p = animationProgress;

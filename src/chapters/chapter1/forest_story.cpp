@@ -7,13 +7,13 @@
 #include <string>
 #include <vector>
 
-#include "../include/story.h"
-#include "../include/paper.h"
-#include "../include/effects.h"
-#include "../include/characters.h"
-#include "../include/objects.h"
-#include "../include/interactions.h"
-#include "../include/audio.h"
+#include "chapters/chapter1/forest_story.h"
+#include "shared/paper.h"
+#include "chapters/chapter1/forest_effects.h"
+#include "chapters/chapter1/forest_characters.h"
+#include "chapters/chapter1/forest_objects.h"
+#include "chapters/chapter1/forest_interactions.h"
+#include "shared/audio.h"
 
 using namespace pl;
 

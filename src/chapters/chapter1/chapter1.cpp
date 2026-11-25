@@ -1,5 +1,5 @@
 // ============================================================
-// forest.cpp - Chapter 1: The Enchanted Forest (director)
+// chapter1.cpp - Chapter 1: The Enchanted Forest (director)
 //
 // Timeline (seconds after the book cover has opened):
 //   Stage 1  landscape rises            0.2 -  2.6
@@ -13,17 +13,17 @@
 #include <GL/freeglut.h>
 #include <cmath>
 
-#include "../include/forest.h"
-#include "../include/animation.h"
-#include "../include/paper.h"
-#include "../include/layout.h"
-#include "../include/environment.h"
-#include "../include/objects.h"
-#include "../include/characters.h"
-#include "../include/effects.h"
-#include "../include/interactions.h"
-#include "../include/story.h"
-#include "../include/audio.h"
+#include "chapters/chapter1/chapter1.h"
+#include "shared/book_animation.h"
+#include "shared/paper.h"
+#include "chapters/chapter1/forest_layout.h"
+#include "chapters/chapter1/forest_environment.h"
+#include "chapters/chapter1/forest_objects.h"
+#include "chapters/chapter1/forest_characters.h"
+#include "chapters/chapter1/forest_effects.h"
+#include "chapters/chapter1/forest_interactions.h"
+#include "chapters/chapter1/forest_story.h"
+#include "shared/audio.h"
 
 using namespace pl;
 
@@ -51,7 +51,7 @@ static Stages stages()
     return s;
 }
 
-void startForest()
+void startChapter1()
 {
     seedRandom(2024);
     g_t = 0.0f;
@@ -69,10 +69,10 @@ void startForest()
     audio::play(audio::SFX_PAGE);
 }
 
-bool isForestReady() { return g_phase != FP_UNFOLD; }
-ForestPhase forestPhase() { return g_phase; }
-bool forestStoryFinished() { return g_phase == FP_AFTER; }
-bool forestBackHit(float x, float y)
+bool isChapter1Ready() { return g_phase != FP_UNFOLD; }
+ForestPhase chapter1Phase() { return g_phase; }
+bool isChapter1Complete() { return g_phase == FP_AFTER; }
+bool chapter1BackButtonHit(float x, float y)
 {
     return g_phase != FP_STORY && ui::backButtonHit(x, y);
 }
@@ -80,7 +80,7 @@ bool forestBackHit(float x, float y)
 // ------------------------------------------------------------
 // update
 // ------------------------------------------------------------
-void updateForest()
+void updateChapter1()
 {
     float dt = pl::dt();
     float bookP = getBookAnimationProgress();
@@ -140,7 +140,7 @@ void updateForest()
 // ------------------------------------------------------------
 // draw
 // ------------------------------------------------------------
-void drawForest()
+void drawChapter1()
 {
     Stages s = stages();
     float scaleOpen = isBookClosing() ? smooth(getBookAnimationProgress() * 1.6f) : 1.0f;
@@ -235,7 +235,7 @@ void drawForest()
 // ------------------------------------------------------------
 // input
 // ------------------------------------------------------------
-bool handleForestClick(float x, float y)
+bool handleChapter1Mouse(float x, float y)
 {
     if (pl::paused()) return false;
     if (g_phase == FP_STORY) return story::storyClick(x, y);
@@ -243,13 +243,13 @@ bool handleForestClick(float x, float y)
     return ui::handleClick(x, y);
 }
 
-void forestMouseMove(float x, float y)
+void handleChapter1MouseMove(float x, float y)
 {
     pl::setMouse(x, y);
     if (g_phase == FP_EXPLORE || g_phase == FP_AFTER) ui::handleHover(x, y);
 }
 
-void forestKey(unsigned char key)
+void handleChapter1Keyboard(unsigned char key)
 {
     switch (key)
     {
@@ -278,7 +278,7 @@ void forestKey(unsigned char key)
     }
 }
 
-void forestSpecialKey(int key)
+void handleChapter1SpecialKey(int key)
 {
     if (g_phase == FP_STORY)
     {
@@ -289,4 +289,19 @@ void forestSpecialKey(int key)
         ui::toast("Chapter 2 is still folded", "The Paper Village will unfold in a later release.", 3.0f, 0);
     else if (key == GLUT_KEY_LEFT)
         ui::toast("This is the first page", "There is no earlier chapter. Press ESC for the menu.", 3.0f, 0);
+}
+
+// ------------------------------------------------------------
+// table handed to core/game.cpp
+// ------------------------------------------------------------
+const Chapter& chapter1()
+{
+    static const Chapter c = {
+        "Chapter 1: The Enchanted Forest",
+        startChapter1, updateChapter1, drawChapter1,
+        handleChapter1Mouse, handleChapter1MouseMove,
+        handleChapter1Keyboard, handleChapter1SpecialKey,
+        chapter1BackButtonHit, isChapter1Complete
+    };
+    return c;
 }

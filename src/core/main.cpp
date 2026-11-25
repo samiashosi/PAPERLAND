@@ -3,12 +3,11 @@
 #include <iostream>
 #include <cstdlib>
 
-#include "../include/menu.h"
-#include "../include/animation.h"
-#include "../include/forest.h"
-#include "../include/paper.h"
-#include "../include/audio.h"
-#include "../include/interactions.h"
+#include "core/menu.h"
+#include "shared/book_animation.h"
+#include "core/game.h"
+#include "shared/paper.h"
+#include "shared/audio.h"
 
 // Current application screen
 AppScreen currentScreen = AppScreen::MENU;
@@ -94,7 +93,7 @@ void mouseMotion(int x, int y)
 
     if (currentScreen == AppScreen::STORY)
     {
-        forestMouseMove((float)lx, (float)(650 - ly));
+        game::mouseMove((float)lx, (float)(650 - ly));
     }
 }
 
@@ -125,7 +124,7 @@ void keyboard(unsigned char key, int x, int y)
             return;
         }
 
-        forestKey(key);
+        game::key(key);
         return;
     }
 
@@ -140,7 +139,7 @@ void special(int key, int x, int y)
 {
     if (currentScreen == AppScreen::STORY)
     {
-        forestSpecialKey(key);
+        game::specialKey(key);
     }
 }
 
@@ -192,6 +191,7 @@ int main(int argc, char** argv)
     glutKeyboardFunc(keyboard);
     glutSpecialFunc(special);
 
+    game::init();
     audio::init();
     std::atexit(audio::shutdown);
 

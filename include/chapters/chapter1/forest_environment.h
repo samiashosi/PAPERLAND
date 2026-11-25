@@ -7,7 +7,7 @@
 #ifndef ENVIRONMENT_H
 #define ENVIRONMENT_H
 
-#include "paper.h"
+#include "shared/paper.h"
 
 namespace env
 {

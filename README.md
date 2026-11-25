@@ -2,12 +2,30 @@
 
 ## Build
 **Windows (MinGW / MSYS2):** double-click `build.bat`, or run  
-`g++ -std=c++11 -O2 src\*.cpp -o PAPERLAND.exe -lfreeglut -lopengl32 -lglu32`  
+`g++ -std=c++11 -O2 -Iinclude src\core\*.cpp src\shared\*.cpp src\chapters\chapter1\*.cpp -o PAPERLAND.exe -lfreeglut -lopengl32 -lglu32`  
 **Linux:** `make` (needs freeglut: `sudo apt install freeglut3-dev`)
 
-> Compile **every** file in `src/` - Chapter 1 is split into modules.
-> `backup/` holds your old `animation_backup.cpp` on purpose; do not compile it
-> (it defines the same functions as `animation.cpp`).
+> The old `g++ src\*.cpp` command no longer works: sources are now in sub-folders
+> and headers are found through `-Iinclude`.
+> `backup/` holds your old `animation_backup.cpp` on purpose; do not compile it.
+
+## Folder structure
+```
+include/ and src/ mirror each other
+  core/                 main.cpp, menu, game.cpp (chapter registry + routing), chapter.h (interface)
+  shared/               used by every chapter: paper toolkit, particles, audio, book animation
+  chapters/chapter1/    The Enchanted Forest - everything specific to Chapter 1
+  chapters/chapter2-4/  empty, ready for the next chapters
+```
+Chapter 1 is reached only through `chapters/chapter1/chapter1.h`
+(`startChapter1, updateChapter1, drawChapter1, handleChapter1Mouse / MouseMove /
+Keyboard / SpecialKey, isChapter1Complete`). Chapter 1 does not include anything
+from other chapters; `main.cpp` and the book only talk to `core/game`.
+
+**Adding Chapter 2:** create `src/chapters/chapter2/` + `include/chapters/chapter2/`,
+expose `const Chapter& chapter2()` (copy the table at the end of `chapter1.cpp`),
+register it in `game::init()` (`src/core/game.cpp`), and add its folder to `build.bat`.
+The Makefile picks new folders up automatically.
 
 ## Controls
 | Key / input | Action |
@@ -33,21 +51,26 @@
    scenes with camera movement and typewriter dialogue (auto-advances; click / ENTER to speed up).
 5. **After the story** - forest restored, clicks re-enabled, BACK TO BOOK pulses and closes the book.
 
-## Modules (as in the Chapter 1 plan)
+## Modules
 | File | Responsibility |
 |---|---|
-| `main.cpp` | window, GLUT callbacks, single 16 ms frame timer |
-| `menu.cpp` | your original menu (kept; only the START/back/keyboard hooks changed) |
-| `animation.cpp` | open book: cover flip, pages, closing animation |
-| `forest.cpp` | Chapter 1 director: 7-stage timeline, scene order, phases, input |
-| `environment.cpp` | sky, sun, clouds, mountains, hills, trees, river, waterfall, bridge, pond, paths |
-| `characters.cpp` | Flick the fox, Pip the rabbit, the deer, butterflies, birds |
-| `objects.cpp` | mushroom houses, Ancient Tree, treasure chest, flowers, mushrooms, discovery icons |
-| `effects.cpp` | fireflies, sparkles, ripples, falling leaves, waterfall spray |
-| `interactions.cpp` | click dispatch, 5 discoveries (0/5), messages, hover cursor, HUD, back button |
-| `story.cpp` | cinematic: transition, 5 scenes, camera, dialogue |
-| `paper.cpp` | shared paper-cut toolkit (shapes + offset shadows, easing, text, time) |
-| `audio.cpp` | synthesized sound effects + lullaby (Windows waveOut; silent elsewhere) |
+| `core/main.cpp` | window, GLUT callbacks, single 16 ms frame timer |
+| `core/menu.cpp` | your original menu |
+| `core/game.cpp` | chapter registry; routes input / update / draw to the active chapter |
+| `shared/book_animation.cpp` | open book: cover flip, pages, closing (chapter-agnostic) |
+| `shared/paper.cpp` | paper-cut toolkit (shapes + offset shadows, easing, text, time) |
+| `shared/particles.cpp` | particle pool (sparkles, motes, leaves, drops, mist, coins) |
+| `shared/audio.cpp` | synthesized sound effects + lullaby (Windows waveOut; silent elsewhere) |
+| `chapters/chapter1/chapter1.cpp` | Chapter 1 director: 7-stage timeline, phases, input |
+| `.../forest_environment.cpp` | sky, sun, clouds, mountains, hills, ground (+ init/update) |
+| `.../forest_trees.cpp` | trees: unfold, click, hover |
+| `.../forest_water.cpp` | waterfall, river, bridge, pond, path stones |
+| `.../forest_characters.cpp` | Flick the fox, Pip the rabbit, the deer, butterflies, birds |
+| `.../forest_objects.cpp` | mushroom houses, Ancient Tree, chest, flowers, mushrooms, discovery icons |
+| `.../forest_effects.cpp` | fireflies, ripples, falling leaves, waterfall spray |
+| `.../forest_interactions.cpp` | click dispatch, 5 discoveries, messages, hover, HUD, back button |
+| `.../forest_story.cpp` | cinematic: transition, 5 scenes, camera, dialogue |
+| `.../forest_layout.h` | Chapter 1 coordinates and constants |
 
 Camera design: **Option A** - fixed book view while exploring, camera movement (pan/zoom) only
 inside the cinematic.

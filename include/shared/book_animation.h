@@ -1,6 +1,6 @@
 
-#ifndef ANIMATION_H
-#define ANIMATION_H
+#ifndef SHARED_BOOK_ANIMATION_H
+#define SHARED_BOOK_ANIMATION_H
 
 // Start the book-opening animation (also restarts the whole chapter)
 void startBookAnimation();
@@ -20,7 +20,8 @@ void startBookClose();
 bool isBookClosing();
 bool isBookClosed();      // true once the closing animation has finished
 
-// Handle clicks inside the forest
-bool handleForestClick(float x, float y);
+// The book is chapter-agnostic: core/game registers the active chapter's
+// start / update / draw functions here (the page content inside the book).
+void setBookContent(void (*start)(), void (*update)(), void (*draw)());
 
 #endif

@@ -5,7 +5,7 @@
 #ifndef CHARACTERS_H
 #define CHARACTERS_H
 
-#include "paper.h"
+#include "shared/paper.h"
 
 namespace chara
 {

@@ -1,10 +1,10 @@
 #include <GL/freeglut.h>
-#include "../include/menu.h"
+#include "core/menu.h"
 #include <cmath>
 #include <string>
-#include "../include/animation.h"
-#include "../include/forest.h"
-#include "../include/audio.h"
+#include "shared/book_animation.h"
+#include "core/game.h"
+#include "shared/audio.h"
 
 // Window dimensions
 const float WIDTH = 1000.0f;
@@ -432,13 +432,13 @@ bool handleMenuMouse(
     // Animated book screen: back button or forest interaction
     if (screen == AppScreen::STORY)
     {
-        if (forestBackHit(mouseX, mouseY))
+        if (game::backButtonHit(mouseX, mouseY))
         {
             startBookClose();      // the book closes, then the menu returns
             return true;
         }
 
-        return handleForestClick(mouseX, mouseY);
+        return game::mouseClick(mouseX, mouseY);
     }
 
 // Secondary screens: back button
@@ -463,6 +463,7 @@ if (
     mouseY >= 345 && mouseY <= 400
 )
 {
+    game::selectChapter(1);
     startBookAnimation();
     screen = AppScreen::STORY;
     return true;
@@ -521,6 +522,7 @@ bool handleMenuKeyboard(
 
     if ((key == '1' || key == 13) && screen == AppScreen::MENU)
     {
+        game::selectChapter(1);
         startBookAnimation();
         screen = AppScreen::STORY;
         return true;
